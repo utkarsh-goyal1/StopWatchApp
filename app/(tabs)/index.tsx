@@ -1,70 +1,145 @@
-import { Image, StyleSheet, Platform } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, StyleSheet} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import Slider from '@react-native-community/slider';
 
 export default function HomeScreen() {
+  const [timer, setTimer] = useState(0); // Timer in seconds
+  const [selectedHours, setSelectedHours] = useState(0);
+  const [selectedMinutes, setSelectedMinutes] = useState(0);
+  const [selectedSeconds, setSelectedSeconds] = useState(0);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null); // Timer interval ID
+
+  const startTimer = () => {
+    if (intervalId) return; // Prevent multiple intervals
+    const id = setInterval(() => {
+      setTimer(prevTimer => {
+        if (prevTimer <= 0) {
+          clearInterval(id); // Stop the timer when it reaches 0
+          setIntervalId(null); // Clear interval ID
+          return 0; // Return 0 to prevent negative time
+        }
+        return prevTimer - 1; // Decrease timer by 1 second
+      });
+    }, 1000);
+    setIntervalId(id);
+  };
+
+  const stopTimer = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null); // Reset interval ID
+    }
+  };
+
+  const resetTimer = () => {
+    stopTimer();
+    setTimer(0); // Reset timer to 0
+    setSelectedHours(0); // Clear input field
+    setSelectedMinutes(0); // Clear input field
+    setSelectedSeconds(0); // Clear input field
+  };
+
+  const handleInputChange = () => {
+    // Calculate total seconds from inputs
+    setTimer(selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds); // Convert to total seconds
+  };
+
+  useEffect(() => {
+    handleInputChange(); // Update timer whenever inputs change
+  }, [selectedHours, selectedMinutes, selectedSeconds]);
+
+  useEffect(() => {
+    return () => {
+      if (intervalId) clearInterval(intervalId); // Cleanup on unmount
+    };
+  }, [intervalId]);
+
+  const isStartDisabled = timer <= 0; // Disable Start button if timer is 0
+
+  // Function to format timer into HH:MM:SS
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      <Text style={styles.timerText}>{formatTime(timer)}</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={selectedHours}
+          style={styles.picker}
+          onValueChange={(itemValue) => setSelectedHours(itemValue)}
+        >
+          {[...Array(24).keys()].map(hour => (
+            <Picker.Item key={hour} label={`${hour} Hour${hour !== 1 ? 's' : ''}`} value={hour} />
+          ))}
+        </Picker>
+        <Picker
+          selectedValue={selectedMinutes}
+          style={styles.picker}
+          onValueChange={(itemValue) => setSelectedMinutes(itemValue)}
+        >
+          {[...Array(60).keys()].map(minute => (
+            <Picker.Item key={minute} label={`${minute} Minute${minute !== 1 ? 's' : ''}`} value={minute} />
+          ))}
+        </Picker>
+      </View>
+      <View style={styles.sliderContainer}>
+        <Text>Seconds: {selectedSeconds}</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={0}
+          maximumValue={59}
+          value={selectedSeconds}
+          onValueChange={(value) => setSelectedSeconds(Math.floor(value))}
+          minimumTrackTintColor="#007AFF"
+          maximumTrackTintColor="#C4C4C4"
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </View>
+      <View style={styles.buttonContainer}>
+        <Button title="Start" onPress={startTimer} disabled={isStartDisabled} />
+        <Button title="Stop" onPress={stopTimer} disabled={!intervalId} />
+        <Button title="Reset" onPress={resetTimer} disabled={timer === 0} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  timerText: {
+    fontSize: 40,
+    marginBottom: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '60%',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '80%',
+    marginBottom: 20,
+  },
+  picker: {
+    height: 50,
+    width: 100,
+    marginHorizontal: 5,
+  },
+  sliderContainer: {
+    width: '80%',
+    alignItems: 'center',
+  },
+  slider: {
+    width: '100%',
   },
 });
